@@ -1,1 +1,1 @@
-export {MQTTPubSub} from './mqtt-pubsub';
+export {SolacePubSub} from './solace-pubsub';

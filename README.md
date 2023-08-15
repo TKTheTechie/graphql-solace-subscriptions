@@ -1,17 +1,14 @@
-# graphql-mqtt-subscriptions
+# graphql-solace-subscriptions
 
-[![Greenkeeper badge](https://badges.greenkeeper.io/davidyaha/graphql-mqtt-subscriptions.svg)](https://greenkeeper.io/)
 
 This package implements the AsyncIterator Interface and PubSubEngine Interface from the [graphql-subscriptions](https://github.com/apollographql/graphql-subscriptions) package. 
-It allows you to connect your subscriptions manager to an MQTT enabled Pub Sub broker to support 
-
+It allows you to connect your subscriptions manager to the Solace PubSub+ broker to support 
 horizontally scalable subscriptions setup.
-This package is an adapted version of my [graphql-redis-subscriptions](https://github.com/davidyaha/graphql-redis-subscriptions) package.
 
 ## Installation
 
 ```
-npm install graphql-mqtt-subscriptions
+npm install graphql-solace-subscriptions
 ```
 
 ## Using the AsyncIterator Interface
@@ -34,17 +31,17 @@ type Result {
 }
 ```
 
-Now, create a `MQTTPubSub` instance.
+Now, create a `SolacePubSub` instance.
 
 ```javascript
-import { MQTTPubSub } from 'graphql-mqtt-subscriptions';
-const pubsub = new MQTTPubSub(); // connecting to mqtt://localhost by default
+import { SolacePubSub } from 'graphql-solace-subscriptions';
+const pubsub = SolacePubSub.startWithDefaultOptions("GRAPH_QL_QUEUE"); // connecting to ws://localhost:8080 by default
 ```
 
 Now, implement the Subscriptions type resolver, using `pubsub.asyncIterator` to map the event you need.
 
 ```javascript
-const SOMETHING_CHANGED_TOPIC = 'something_changed';
+const SOMETHING_CHANGED_TOPIC = 'SOMETHING/CHANGED';
 
 export const resolvers = {
   Subscription: {
@@ -96,133 +93,35 @@ export const resolvers = {
 }
 ```
 
-## Passing your own client object
+## Passing your own properties object
 
-The basic usage is great for development and you will be able to connect to any mqtt enabled server running on your system seamlessly.
-For production usage, it is recommended you pass your own MQTT client.
+The basic usage is great for development and you will be able to connect to a locally hosted Solace PubSub+ event broker. But if you wanted to connect to a specific host, you can inject your own Solace properties.
+
+
  
 ```javascript
-import { connect } from 'mqtt';
-import { MQTTPubSub } from 'graphql-mqtt-subscriptions';
+import { SolacePubSub, SolacePubSubOptions } from 'graphql-solace-subscriptions';
 
-const client = connect('mqtt://test.mosquitto.org', {
-  reconnectPeriod: 1000,
-});
+let solacePubSubOptions = new SolacePubSubOptions("wss://host:8081","vpn1","user","password");
 
-const pubsub = new MQTTPubSub({
-  client
-});
+
+const pubsub = SolacePubSub.startWithSolaceOptions("GRAPH_QL_QUEUE",solacePubSubOptions);
 ```
 
-You can learn more on the mqtt options object [here](https://github.com/mqttjs/MQTT.js#client).
+## Passing your own Solace Session
 
-## Changing QoS for publications or subscriptions
+If you want to take advantage of a different authentication mechanism, you have the ability to inject a fully instantiated Solace session into the SolacePubSub object.
 
-As specified [here](https://github.com/mqttjs/MQTT.js#publish), the MQTT.js publish and subscribe functions takes an 
-options object. This object can be defined per trigger with `publishOptions` and `subscribeOptions` resolvers.
 
+ 
 ```javascript
-const triggerToQoSMap = {
-  'comments.added': 1,
-  'comments.updated': 2,
-};
+import { SolacePubSub } from 'graphql-solace-subscriptions';
+import solace from 'solclientjs';
 
-const pubsub = new MQTTPubSub({
-  publishOptions: trigger => Promise.resolve({ qos: triggerToQoSMap[trigger] }),
-  
-  subscribeOptions: (trigger, channelOptions) => Promise.resolve({ 
-    qos: Math.max(triggerToQoSMap[trigger], channelOptions.maxQoS), 
-  }),
-});
+let session: solace.Session;
+
+//instantiate your solace session
+
+
+const pubsub = SolacePubSub.startWithSolaceSession("GRAPH_QL_QUEUE",session);
 ```
-
-## Get Notified of the Actual QoS Assigned for a Subscription
-
-MQTT allows the broker to assign different QoS levels than the one requested by the client. 
-In order to know what QoS was given to your subscription, you can pass in a callback called `onMQTTSubscribe`
-
-```javascript
-const onMQTTSubscribe = (subId, granted) => {
-  console.log(`Subscription with id ${subId} was given QoS of ${granted.qos}`);
-}
-
-const pubsub = new MQTTPubSub({onMQTTSubscribe});
-```
-
-## Change Encoding Used to Encode and Decode Messages
-
-Supported encodings available [here](https://nodejs.org/api/buffer.html#buffer_buffers_and_character_encodings) 
-
-```javascript
-const pubsub = new MQTTPubSub({
-  parseMessageWithEncoding: 'utf16le',
-});
-```
-
-
-## Basic Usage with SubscriptionManager (Deprecated)
-
-```javascript
-import { MQTTPubSub } from 'graphql-mqtt-subscriptions';
-const pubsub = new MQTTPubSub(); // connecting to mqtt://localhost on default
-const subscriptionManager = new SubscriptionManager({
-  schema,
-  pubsub,
-  setupFunctions: {},
-});
-```
-
-## Using Trigger Transform (Deprecated)
-
-Similar to the [graphql-redis-subscriptions](https://github.com/davidyaha/graphql-redis-subscriptions) package, this package supports
-a trigger transform function. This trigger transform allows you to use the `channelOptions` object provided to the `SubscriptionManager`
-instance, and return a trigger string which is more detailed then the regular trigger. 
-
-Here is an example of a generic trigger transform.
-
-```javascript
-const triggerTransform = (trigger, { path }) => [trigger, ...path].join('.');
-```
-
-> Note that a `path` field to be passed to the `channelOptions` but you can do whatever you want.
-
-Next, pass the `triggerTransform` to the `MQTTPubSub` constructor.
-
-```javascript
-const pubsub = new MQTTPubSub({
-  triggerTransform,
-});
-```
-
-Lastly, a setupFunction is provided for the `commentsAdded` subscription field.
-It specifies one trigger called `comments.added` and it is called with the `channelOptions` object that holds `repoName` path fragment.
-```javascript
-const subscriptionManager = new SubscriptionManager({
-  schema,
-  setupFunctions: {
-    commentsAdded: (options, { repoName }) => ({
-      'comments/added': {
-        channelOptions: { path: [repoName] },
-      },
-    }),
-  },
-  pubsub,
-});
-```
-> Note that the `triggerTransform` dependency on the `path` field is satisfied here.
-
-When `subscribe` is called like this:
-
-```javascript
-const query = `
-  subscription X($repoName: String!) {
-    commentsAdded(repoName: $repoName)
-  }
-`;
-const variables = {repoName: 'graphql-mqtt-subscriptions'};
-subscriptionManager.subscribe({ query, operationName: 'X', variables, callback });
-```
-
-The subscription string that MQTT will receive will be `comments.added.graphql-mqtt-subscriptions`.
-This subscription string is much more specific and means the the filtering required for this type of subscription is not needed anymore.
-This is one step towards lifting the load off of the graphql api server regarding subscriptions.

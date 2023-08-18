@@ -1,6 +1,6 @@
 import { PubSubEngine } from 'graphql-subscriptions/dist/pubsub-engine';
-import { PubSubAsyncIterator } from './pubsub-async-iterator.js';
-import solace from 'solclientjs';
+import { PubSubAsyncIterator } from './pubsub-async-iterator';
+import * as solace from 'solclientjs';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -30,6 +30,8 @@ export class SolacePubSub implements PubSubEngine {
   private subsRefsMap: { [trigger: string]: Array<number> };
   private currentSubscriptionId: number;
 
+  private static regExdSubMap = new Map<string, string>();
+
   private constructor(queueName: string, solacePubSubOptions?: SolacePubSubOptions, session?: solace.Session) {
     this.queueName = queueName;
     this.subscriptionMap = {};
@@ -39,31 +41,37 @@ export class SolacePubSub implements PubSubEngine {
     if (session == undefined && solacePubSubOptions == undefined) this.solacePubSubOptions = new SolacePubSubOptions();
   }
 
-  static startWithDefaultOptions(queueName: string) {
-    return new SolacePubSub(queueName);
+  static async startWithDefaultOptions(queueName: string) {
+    let solacePubSub = new SolacePubSub(queueName);
+    await solacePubSub.start();
+    return solacePubSub;
   }
 
-  static startWithSolaceOptions(queueName: string, solacePubSubOptions: SolacePubSubOptions) {
-    return new SolacePubSub(queueName, solacePubSubOptions);
+  static async startWithSolaceOptions(queueName: string, solacePubSubOptions: SolacePubSubOptions) {
+    let solacePubSub = new SolacePubSub(queueName, solacePubSubOptions);
+    await solacePubSub.start();
+    return solacePubSub;
   }
 
-  static startWithSolaceSession(queueName: string, session: solace.Session) {
-    return new SolacePubSub(queueName, null, session);
+  static async startWithSolaceSession(queueName: string, session: solace.Session) {
+    let solacePubSub = new SolacePubSub(queueName, null, session);
+    await solacePubSub.start();
+    return solacePubSub;
   }
 
-  private start() {
+  private async start() {
     //Instantiate a new SolaceClient
     this.solaceClient = new SolaceClient(this.onMessage.bind(this), this.session, this.solacePubSubOptions);
 
     //If the session is null, then the user didn't provide one so try to instantiate one yourself
     if (this.session == null) {
-      this.solaceClient
+      await this.solaceClient
         .connect()
         .then((info: string) => {
           this.solaceClient.consumeFromQueue(this.queueName);
         })
         .catch((err) => {
-          console.error(err);
+          console.log(err);
         });
     } else {
       this.solaceClient.consumeFromQueue(this.queueName);
@@ -71,8 +79,6 @@ export class SolacePubSub implements PubSubEngine {
   }
 
   private onMessage(message: solace.Message) {
-    console.log(message.getDestination().getName());
-
     const subscribers = [].concat(
       ...Object.keys(this.subsRefsMap)
         .filter((key) => SolacePubSub.matches(key, message.getDestination().getName()))
@@ -95,7 +101,7 @@ export class SolacePubSub implements PubSubEngine {
         }
       });
     } catch (e) {
-      console.error('Unable to parse message received from queue');
+      console.log('Unable to parse message received from queue');
     }
   }
 
@@ -108,12 +114,17 @@ export class SolacePubSub implements PubSubEngine {
   private static matches(pattern: string, topic: string): boolean {
     let isMatch = false;
 
-    //Replace all * in the topic filter with a .* to make it regex compatible
-    let regexdSub = pattern.replace(/\*/g, '.*');
+    let regexdSub = SolacePubSub.regExdSubMap.get(pattern);
 
-    //if the last character is a '>', replace it with a .* to make it regex compatible
-    if (pattern.lastIndexOf('>') == pattern.length - 1) regexdSub = regexdSub.substring(0, regexdSub.length - 1).concat('.*');
+    if (!regexdSub) {
+      //Replace all * in the topic filter with a .* to make it regex compatible
+      regexdSub = pattern.replace(/\*/g, '.*');
 
+      //if the last character is a '>', replace it with a .* to make it regex compatible
+      if (pattern.lastIndexOf('>') == pattern.length - 1) regexdSub = regexdSub.substring(0, regexdSub.length - 1).concat('.*');
+
+      SolacePubSub.regExdSubMap.set(pattern, regexdSub);
+    }
     let matched = topic.match(regexdSub);
 
     //if the matched index starts at 0, then the topic is a match with the topic filter
@@ -130,6 +141,11 @@ export class SolacePubSub implements PubSubEngine {
 
   publish(triggerName: string, payload: any): Promise<void> {
     return this.solaceClient.publishMessage(triggerName, JSON.stringify(payload));
+  }
+
+  async stop() {
+    this.solaceClient.stopConsumeFromQueue(this.queueName);
+    await this.solaceClient.disconnect();
   }
 
   subscribe(triggerName: string, onMessage: Function): Promise<number> {
@@ -158,7 +174,7 @@ export class SolacePubSub implements PubSubEngine {
       });
     }
   }
-  unsubscribe(subId: number) {
+  async unsubscribe(subId: number) {
     const [triggerName = null] = this.subscriptionMap[subId] || [];
     const refs = this.subsRefsMap[triggerName];
 
@@ -169,6 +185,7 @@ export class SolacePubSub implements PubSubEngine {
     let newRefs;
     if (refs.length === 1) {
       this.solaceClient.removeSubscriptionFromQueue(triggerName).then(() => {
+        SolacePubSub.regExdSubMap.delete(triggerName);
         newRefs = [];
       });
     } else {
@@ -235,52 +252,55 @@ class SolaceClient {
             },
           });
         } catch (error) {
-          console.error(error.toString());
+          console.log(error.toString());
         }
         // define session event listeners
 
         //The UP_NOTICE dictates whether the session has been established
         this.session.on(solace.SessionEventCode.UP_NOTICE, (sessionEvent: solace.SessionEvent) => {
-          console.info('=== Successfully connected and ready to subscribe. ===');
+          console.log('=== Successfully connected and ready to subscribe. ===');
           resolve('Connected');
         });
 
         //The CONNECT_FAILED_ERROR implies a connection failure
         this.session.on(solace.SessionEventCode.CONNECT_FAILED_ERROR, (sessionEvent: solace.SessionEvent) => {
-          console.error('Connection failed to the message router: ' + sessionEvent.infoStr + ' - check correct parameter values and connectivity!');
+          console.log('Connection failed to the message router: ' + sessionEvent.infoStr + ' - check correct parameter values and connectivity!');
           reject(`Check your connection settings and try again!`);
-        });
-
-        //DISCONNECTED implies the client was disconnected
-        this.session.on(solace.SessionEventCode.DISCONNECTED, (sessionEvent: solace.SessionEvent) => {
-          console.info('Disconnected.');
-          if (this.session !== null) {
-            this.session.dispose();
-            this.session = null;
-          }
         });
 
         // connect the session
         try {
           this.session.connect();
         } catch (error) {
-          console.info(error.toString());
+          console.log(error.toString());
         }
       }
     });
   }
 
-  disconnect() {
-    console.info('Disconnecting from Solace message router...');
-    if (this.session !== null) {
-      try {
-        this.session.disconnect();
-      } catch (error) {
-        console.error(error.toString());
+  async disconnect() {
+    return new Promise<void>((resolve, reject) => {
+      console.log('Disconnecting from Solace message router...');
+
+      //DISCONNECTED implies the client was disconnected
+      this.session.on(solace.SessionEventCode.DISCONNECTED, (sessionEvent: solace.SessionEvent) => {
+        console.log('Disconnected.');
+        if (this.session !== null) {
+          this.session.dispose();
+          this.session = null;
+          resolve();
+        }
+      });
+      if (this.session !== null) {
+        try {
+          this.session.disconnect();
+        } catch (error) {
+          console.log(error.toString());
+        }
+      } else {
+        console.log('Not connected to Solace message router.');
       }
-    } else {
-      console.error('Not connected to Solace message router.');
-    }
+    });
   }
 
   /**
@@ -291,7 +311,7 @@ class SolaceClient {
    */
   consumeFromQueue(queueName: string) {
     if (this.session == null) {
-      console.error('Not connected to Solace!');
+      console.log('Not connected to Solace!');
     } else {
       if (this.isConsuming) console.warn(`Already connected to the queue ${queueName}`);
       else {
@@ -302,19 +322,19 @@ class SolaceClient {
         });
 
         this.messageConsumer.on(solace.MessageConsumerEventName.UP, () => {
-          console.info('Succesfully connected to and consuming from ' + queueName);
+          console.log('Succesfully connected to and consuming from ' + queueName);
         });
 
         this.messageConsumer.on(solace.MessageConsumerEventName.CONNECT_FAILED_ERROR, () => {
-          console.error('Consumer cannot bind to queue ' + queueName);
+          console.log('Consumer cannot bind to queue ' + queueName);
         });
 
         this.messageConsumer.on(solace.MessageConsumerEventName.DOWN, () => {
-          console.error('The message consumer is down');
+          console.log('The message consumer is down');
         });
 
         this.messageConsumer.on(solace.MessageConsumerEventName.DOWN_ERROR, () => {
-          console.error('An error happend, the message consumer is down');
+          console.log('An error happend, the message consumer is down');
         });
 
         this.messageConsumer.on(solace.MessageConsumerEventName.MESSAGE, (message: solace.Message) => {
@@ -326,7 +346,7 @@ class SolaceClient {
           this.messageConsumer.connect();
           this.isConsuming = true;
         } catch (err) {
-          console.error('Cannot start the message consumer on queue ' + queueName + ' because: ' + err);
+          console.log('Cannot start the message consumer on queue ' + queueName + ' because: ' + err);
         }
       }
     }
@@ -367,7 +387,7 @@ class SolaceClient {
 
     //The function to be called if the Ack happends
     onAck = (evt: solace.MessageConsumerEvent) => {
-      if (evt.correlationKey !== correlationKey) return;
+      if (!evt || evt.correlationKey !== correlationKey) return;
       this.messageConsumer.removeListener(solace.MessageConsumerEventName.SUBSCRIPTION_OK, onAck);
       this.messageConsumer.removeListener(solace.MessageConsumerEventName.SUBSCRIPTION_ERROR, onNak);
       resolve();
@@ -375,7 +395,7 @@ class SolaceClient {
 
     //The function to be called if the action is rejected
     onNak = (evt: solace.MessageConsumerEvent) => {
-      if (evt.correlationKey !== correlationKey) return;
+      if (!evt || evt.correlationKey !== correlationKey) return;
       this.messageConsumer.removeListener(solace.MessageConsumerEventName.SUBSCRIPTION_OK, onAck);
       this.messageConsumer.removeListener(solace.MessageConsumerEventName.SUBSCRIPTION_ERROR, onNak);
       reject();
@@ -405,7 +425,7 @@ class SolaceClient {
   async publishMessage(topic: string, payload: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.session) {
-        console.error('Cannot publish because not connected to Solace message router!');
+        console.log('Cannot publish because not connected to Solace message router!');
         reject();
         return;
       }
@@ -423,7 +443,7 @@ class SolaceClient {
         let onAck, onNak;
         //call to be made on succesful publish
         onAck = (evt: solace.SessionEvent) => {
-          if (evt.correlationKey !== correlationKey) {
+          if (!evt || evt.correlationKey !== correlationKey) {
             return;
           }
           this.session.removeListener(String(solace.SessionEventCode.ACKNOWLEDGED_MESSAGE), onAck);
@@ -434,7 +454,7 @@ class SolaceClient {
         //call to be made on rejected publish
         onNak = (evt: solace.SessionEvent) => {
           console.log('Unsuccesfully published!');
-          if (evt.correlationKey !== correlationKey) {
+          if (!evt || evt.correlationKey !== correlationKey) {
             return;
           }
           this.session.removeListener(String(solace.SessionEventCode.ACKNOWLEDGED_MESSAGE), onAck);
@@ -451,7 +471,7 @@ class SolaceClient {
           //remove the callbacks on error
           this.session.removeListener(String(solace.SessionEventCode.ACKNOWLEDGED_MESSAGE), onAck);
           this.session.removeListener(String(solace.SessionEventCode.REJECTED_MESSAGE_ERROR), onNak);
-          console.error(error);
+          console.log(error);
           reject();
         }
       });

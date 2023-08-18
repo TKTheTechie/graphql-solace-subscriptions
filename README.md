@@ -2,7 +2,7 @@
 
 
 This package implements the AsyncIterator Interface and PubSubEngine Interface from the [graphql-subscriptions](https://github.com/apollographql/graphql-subscriptions) package. 
-It allows you to connect your subscriptions manager to the Solace PubSub+ broker to support 
+It allows you to connect your subscriptions manager to the Solace PubSub+ broker to support a
 horizontally scalable subscriptions setup.
 
 ## Installation
@@ -35,7 +35,7 @@ Now, create a `SolacePubSub` instance.
 
 ```javascript
 import { SolacePubSub } from 'graphql-solace-subscriptions';
-const pubsub = SolacePubSub.startWithDefaultOptions("GRAPH_QL_QUEUE"); // connecting to ws://localhost:8080 by default
+const pubsub = await SolacePubSub.startWithDefaultOptions("GRAPH_QL_QUEUE"); // connecting to ws://localhost:8080 by default
 ```
 
 Now, implement the Subscriptions type resolver, using `pubsub.asyncIterator` to map the event you need.
@@ -105,7 +105,7 @@ import { SolacePubSub, SolacePubSubOptions } from 'graphql-solace-subscriptions'
 let solacePubSubOptions = new SolacePubSubOptions("wss://host:8081","vpn1","user","password");
 
 
-const pubsub = SolacePubSub.startWithSolaceOptions("GRAPH_QL_QUEUE",solacePubSubOptions);
+const pubsub = await SolacePubSub.startWithSolaceOptions("GRAPH_QL_QUEUE",solacePubSubOptions);
 ```
 
 ## Passing your own Solace Session
@@ -123,5 +123,5 @@ let session: solace.Session;
 //instantiate your solace session
 
 
-const pubsub = SolacePubSub.startWithSolaceSession("GRAPH_QL_QUEUE",session);
+const pubsub = await SolacePubSub.startWithSolaceSession("GRAPH_QL_QUEUE",session);
 ```

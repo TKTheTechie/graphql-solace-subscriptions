@@ -4,7 +4,7 @@ module.exports = {
     collectCoverage: true,
     coverageDirectory: 'coverage',
     coverageProvider: 'v8',
-    testMatch: ['<rootDir>/src/test/**/unit.spec.ts'],
+    testMatch: ['<rootDir>/src/test/**/*.spec.ts'],
     transform: {
         '^.+\\.(ts|tsx)?$': 'ts-jest',
         '^.+\\.(js|jsx)$': 'babel-jest',

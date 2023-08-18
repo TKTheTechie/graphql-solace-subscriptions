@@ -1,9 +1,12 @@
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
+
+
 # graphql-solace-subscriptions
 
-
+## Overview
 This package implements the AsyncIterator Interface and PubSubEngine Interface from the [graphql-subscriptions](https://github.com/apollographql/graphql-subscriptions) package. 
 It allows you to connect your subscriptions manager to the Solace PubSub+ broker to support a
-horizontally scalable subscriptions setup.
+horizontally scalable subscriptions setup. You can also take advantage of many Solace features such as EventMesh, TopicToQueueMapping etc to liberate your GraphQL events to outside your GraphQL ecosystem.
 
 ## Installation
 
@@ -125,3 +128,21 @@ let session: solace.Session;
 
 const pubsub = await SolacePubSub.startWithSolaceSession("GRAPH_QL_QUEUE",session);
 ```
+
+
+## Resources
+This is not an officially supported Solace product.
+
+For more information try these resources:
+- Ask the [Solace Community](https://solace.community)
+- The Solace Developer Portal website at: https://solace.dev
+
+
+## Contributing
+Contributions are encouraged! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
+
+## Authors
+See the list of [contributors](https://github.com/solacecommunity/solacecommunity/graphs/contributors) who participated in this project.
+
+## License
+See the [LICENSE](LICENSE) file for details.

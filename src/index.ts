@@ -1,1 +1,1 @@
-export { SolacePubSub } from './solace-pubsub';
+export { SolacePubSub, SolacePubSubOptions } from './solace-pubsub';

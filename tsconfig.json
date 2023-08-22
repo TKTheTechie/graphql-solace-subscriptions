@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
+    "target": "es6",
+    "module": "commonjs",
     "moduleResolution": "node",
     "sourceMap": true,
     "noImplicitAny": false,
     "rootDir": "./src",
     "outDir": "./dist",
+    "downlevelIteration": true,
     "allowSyntheticDefaultImports": true,
     "pretty": true,
     "removeComments": true,

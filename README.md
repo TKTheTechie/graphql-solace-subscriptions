@@ -11,7 +11,7 @@ horizontally scalable subscriptions setup. You can also take advantage of many S
 ## Installation
 
 ```
-npm install graphql-solace-subscriptions
+npm install @solace-community/graphql-solace-subscriptions
 ```
 
 ## Using the AsyncIterator Interface

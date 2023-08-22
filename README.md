@@ -73,7 +73,7 @@ pubsub.publish(SOMETHING_CHANGED_TOPIC, { somethingChanged: { id: "123" }});
 export const resolvers = {
   Subscription: {
     somethingChanged: {
-      subscribe: (_, args) => pubsub.asyncIterator(`${SOMETHING_CHANGED_TOPIC}.${args.relevantId}`),
+      subscribe: (_, args) => pubsub.asyncIterator(`${SOMETHING_CHANGED_TOPIC}/${args.relevantId}`),
     },
   },
 }
@@ -88,7 +88,7 @@ export const resolvers = {
   Subscription: {
     somethingChanged: {
       subscribe: withFilter(
-        (_, args) => pubsub.asyncIterator(`${SOMETHING_CHANGED_TOPIC}.${args.relevantId}`),
+        (_, args) => pubsub.asyncIterator(`${SOMETHING_CHANGED_TOPIC}/${args.relevantId}`),
         (payload, variables) => payload.somethingChanged.id === variables.relevantId,
       ),
     },

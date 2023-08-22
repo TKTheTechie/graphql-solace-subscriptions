@@ -38,6 +38,7 @@ export class SolacePubSub implements PubSubEngine {
     this.subsRefsMap = {};
     this.currentSubscriptionId = 0;
     this.session = session;
+    this.solacePubSubOptions = solacePubSubOptions;
     if (session == undefined && solacePubSubOptions == undefined) this.solacePubSubOptions = new SolacePubSubOptions();
   }
 

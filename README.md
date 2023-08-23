@@ -37,7 +37,7 @@ type Result {
 Now, create a `SolacePubSub` instance.
 
 ```javascript
-import { SolacePubSub } from 'graphql-solace-subscriptions';
+import { SolacePubSub } from '@solace-community/graphql-solace-subscriptions';
 const pubsub = await SolacePubSub.startWithDefaultOptions("GRAPH_QL_QUEUE"); // connecting to ws://localhost:8080 by default
 ```
 
@@ -57,7 +57,7 @@ export const resolvers = {
 
 > Subscriptions resolvers are not a function, but an object with `subscribe` method, that returns `AsyncIterable`.
 
-The `AsyncIterator` method will tell the MQTT client to listen for messages from the MQTT broker on the topic provided, and wraps that listener in an `AsyncIterator` object. 
+The `AsyncIterator` method will tell the Solace client to listen for messages from the Solace broker on the topic provided via a Queue, and wraps that listener in an `AsyncIterator` object. 
 
 When messages are received from the topic, those messages can be returned back to connected clients.
 
@@ -103,7 +103,7 @@ The basic usage is great for development and you will be able to connect to a lo
 
  
 ```javascript
-import { SolacePubSub, SolacePubSubOptions } from 'graphql-solace-subscriptions';
+import { SolacePubSub, SolacePubSubOptions } from '@solace-community/graphql-solace-subscriptions';
 
 let solacePubSubOptions = new SolacePubSubOptions("wss://host:8081","vpn1","user","password");
 
@@ -118,7 +118,7 @@ If you want to take advantage of a different authentication mechanism, you have 
 
  
 ```javascript
-import { SolacePubSub } from 'graphql-solace-subscriptions';
+import { SolacePubSub } from '@solace-community/graphql-solace-subscriptions';
 import solace from 'solclientjs';
 
 let session: solace.Session;

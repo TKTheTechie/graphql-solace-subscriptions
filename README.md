@@ -5,8 +5,10 @@
 
 ## Overview
 This package implements the AsyncIterator Interface and PubSubEngine Interface from the [graphql-subscriptions](https://github.com/apollographql/graphql-subscriptions) package. 
-It allows you to connect your subscriptions manager to the Solace PubSub+ broker to support a
-horizontally scalable subscriptions setup. You can also take advantage of many Solace features such as EventMesh, TopicToQueueMapping etc to liberate your GraphQL events to outside your GraphQL ecosystem.
+It allows you to connect your subscriptions manager to the [Solace PubSub+](https://solace.com/try-it-now/) event broker to support a
+horizontally scalable subscriptions setup. Solace is the world's most advanced event broker that is available for free and offers innovative features such as event mesh, topic routing, and unparalleled performance. For a full working example of this package working with Solace, head over to [this repo](https://github.com/TKTheTechie/graphql-server-subscriptions-with-solace).
+
+
 
 ## Installation
 
